@@ -1,3 +1,3 @@
 # py-gloomers
 
-Describe your project here.
+Python solution for fly.io Gossip Gloomers challenge
