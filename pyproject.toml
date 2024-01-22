@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">= 3.11"
 
 [project.scripts]
-hello = "py_gloomers:hello"
+echo = "py_gloomers.workloads.echo:main"
 
 [build-system]
 requires = ["hatchling"]

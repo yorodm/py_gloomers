@@ -5,7 +5,7 @@ from dataclasses import asdict
 from typing import Optional
 from unittest.mock import patch
 from unittest import IsolatedAsyncioTestCase
-from py_gloomers.node import StdIOTransport, EventData
+from py_gloomers.node import StdIOTransport, EventData, AbstractTransport
 
 
 
@@ -13,13 +13,15 @@ ECHO_MESSAGE = "{\"src\": \"c1\", \"dest\": \"n1\", \"body\": {\"type\": \"echo\
 
 
 class TestTransport(IsolatedAsyncioTestCase):
+    """Test the StdIoTransport."""
 
     @patch("sys.stdin", io.StringIO(ECHO_MESSAGE))
     @patch("sys.stdout", new_callable=io.StringIO)
     async def test_read(self, stdout: io.StringIO) -> None:
         # Given
         loop = asyncio.get_event_loop()
-        transport = StdIOTransport(loop)
+        transport = StdIOTransport()
+        await transport.connect(loop)
         # When
         data: Optional[EventData] = await transport.read()
         # Then
@@ -34,3 +36,11 @@ class TestTransport(IsolatedAsyncioTestCase):
         # Then
         assert data is None
         assert transport.connection_open() is False
+
+
+class ListBasedTransport(AbstractTransport):
+    pass
+
+
+class TestNode(IsolatedAsyncioTestCase):
+    pass
