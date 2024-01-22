@@ -1,6 +1,8 @@
+"""Echo module."""
+import asyncio
 from typing import Optional
 from py_gloomers.node import Node, StdIOTransport, Body
-import asyncio
+
 
 node = Node(transport=StdIOTransport())
 
