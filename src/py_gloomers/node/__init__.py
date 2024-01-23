@@ -6,6 +6,8 @@ import asyncio
 import sys
 import json
 import functools
+from enum import StrEnum
+
 
 Body: TypeAlias = dict[str, Any]
 
@@ -23,6 +25,33 @@ class EventData:
     src: str
     dest: str
     body: Body
+
+
+class MessageTypes(StrEnum):
+    """Node message types."""
+
+    ECHO = "echo"
+    ECHO_OK = "echo_ok"
+    INIT = "init"
+    INIT_OK = "init_ok"
+
+
+class MessageFields(StrEnum):
+    """Important fields in the message wrapper."""
+
+    DEST = "dest"
+    SRC = "src"
+    BODY = "body"
+
+
+class BodyFiels(StrEnum):
+    """Important fields in message body."""
+
+    TYPE = "type"
+    REPLY = "in_reply_to"
+    NODE_ID = "node_id"
+    NODE_IDS = "node_ids"
+    MSG_ID = "msg_id"
 
 
 class AbstractTransport(ABC):
@@ -72,14 +101,16 @@ class StdIOTransport(AbstractTransport):
             self.connection_lost.set()
             return None
         data = json.loads(line.strip())
-        return EventData(data["src"], data["dest"], data["body"])
+        return EventData(
+            data[MessageFields.SRC], data[MessageFields.DEST], data[MessageFields.BODY]  # noqa
+        )
 
     async def send(self, data: EventData):
         """Send data to the underlying connection."""
         output = json.dumps(asdict(data))
         # It prevents us from making a mess out of stdout
         async with self.output_lock:
-            await self.loop.run_in_executor(None, lambda: print(output, flush=True))
+            await self.loop.run_in_executor(None, lambda: print(output, flush=True))  # noqa
 
 
 Handler: TypeAlias = Callable[[Body], Awaitable[Optional[Body]]]
@@ -111,9 +142,9 @@ class Node:
                 pass  # Exception we've been initialized already
             if body is None:
                 return None  # Exception, we need a body here
-            self.node_id = body["node_id"]
-            self.node_ids = body.get("node_ids", [])
-            return {"type": "init_ok", "in_reply_to": body["msg_id"]}
+            self.node_id = body[BodyFiels.NODE_ID]
+            self.node_ids = body.get(BodyFiels.NODE_IDS, [])
+            return {BodyFiels.TYPE: MessageTypes.INIT_OK, "in_reply_to": body[BodyFiels.MSG_ID]}
 
         # Register init handler
         self.handler(init)
@@ -147,6 +178,15 @@ class Node:
         event = EventData(self.node_id, dest, body)
         await self.transport.send(event)
 
+    async def rpc(
+        self,
+        dest: str,
+        message_type: MessageTypes,
+        body: Body,
+        callback: Handler,  # noqa
+    ):
+        """Make an rpc call and wait for a response."""
+
     def handler(self, func: Handler):
         """Register a handler for a given message."""
         self.handlers[func.__name__] = func
@@ -154,7 +194,7 @@ class Node:
     async def process_message(self, event: EventData) -> None:
         """Call the handler of the given message."""
         await self.log("Entering handle")
-        if marker := event.body.get("type", None):
+        if marker := event.body.get(BodyFiels.TYPE, None):
             await self.log(f"marker is {marker}")
             await self.log(f"handlers are {self.handlers}")
             if func := self.handlers.get(marker, None):

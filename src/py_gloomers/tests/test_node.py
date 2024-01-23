@@ -26,7 +26,7 @@ class TestTransport(IsolatedAsyncioTestCase):
         data: Optional[EventData] = await transport.read()
         # Then
         assert data is not None
-        assert data.body["type"] == "echo"
+        assert asdict(data) == json.loads(ECHO_MESSAGE)
         # When
         await transport.send(data)
         # Then
