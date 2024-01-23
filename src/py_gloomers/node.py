@@ -1,77 +1,13 @@
 """Implementation of a Node and the RPC Stack."""
-from typing import TypeAlias, Any, Callable, Optional, Awaitable
-from dataclasses import dataclass, asdict
-from abc import ABC, abstractmethod
 import asyncio
 import sys
 import json
 import functools
-from enum import StrEnum
-
-
-Body: TypeAlias = dict[str, Any]
-
-
-class MessageError(Exception):
-    """Raise if a message was not valid."""
-
-    pass
-
-
-@dataclass
-class EventData:
-    """The data for received events."""
-
-    src: str
-    dest: str
-    body: Body
-
-
-class MessageTypes(StrEnum):
-    """Node message types."""
-
-    ECHO = "echo"
-    ECHO_OK = "echo_ok"
-    INIT = "init"
-    INIT_OK = "init_ok"
-
-
-class MessageFields(StrEnum):
-    """Important fields in the message wrapper."""
-
-    DEST = "dest"
-    SRC = "src"
-    BODY = "body"
-
-
-class BodyFiels(StrEnum):
-    """Important fields in message body."""
-
-    TYPE = "type"
-    REPLY = "in_reply_to"
-    NODE_ID = "node_id"
-    NODE_IDS = "node_ids"
-    MSG_ID = "msg_id"
-
-
-class AbstractTransport(ABC):
-    """Basic interface for a transport."""
-
-    @abstractmethod
-    async def send(self, data: EventData) -> None:
-        """Send data using this transport."""
-
-    @abstractmethod
-    async def connect(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Connect the transport."""
-
-    @abstractmethod
-    async def read(self) -> Optional[EventData]:
-        """Receive data using this transport."""
-
-    @abstractmethod
-    def connection_open(self) -> bool:
-        """Return true if the connection is still open."""
+from typing import Optional
+from dataclasses import asdict
+from py_gloomers.types import AbstractTransport, EventData, Body
+from py_gloomers.types import MessageFields, MessageTypes, BodyFiels
+from py_gloomers.types import Handler
 
 
 class StdIOTransport(AbstractTransport):
@@ -102,7 +38,9 @@ class StdIOTransport(AbstractTransport):
             return None
         data = json.loads(line.strip())
         return EventData(
-            data[MessageFields.SRC], data[MessageFields.DEST], data[MessageFields.BODY]  # noqa
+            data[MessageFields.SRC],
+            data[MessageFields.DEST],
+            data[MessageFields.BODY],  # noqa
         )
 
     async def send(self, data: EventData):
@@ -111,9 +49,6 @@ class StdIOTransport(AbstractTransport):
         # It prevents us from making a mess out of stdout
         async with self.output_lock:
             await self.loop.run_in_executor(None, lambda: print(output, flush=True))  # noqa
-
-
-Handler: TypeAlias = Callable[[Body], Awaitable[Optional[Body]]]
 
 
 class Node:
@@ -132,19 +67,24 @@ class Node:
         self.transport = transport
         self.message_count = 0
         self.handlers = dict()
-        self.node_id = None  # We are using this as a marker for the init status
+        # We are using this as a marker for the init status
+        self.node_id = None
         self.err_lock = asyncio.Lock()
 
         async def init(body: Optional[Body]) -> Optional[Body]:
             """Handle init message from the network."""
-            await self.log("Entering init")
+            await self.log("Initializing node after init message")
             if self.node_id:
                 pass  # Exception we've been initialized already
             if body is None:
                 return None  # Exception, we need a body here
             self.node_id = body[BodyFiels.NODE_ID]
             self.node_ids = body.get(BodyFiels.NODE_IDS, [])
-            return {BodyFiels.TYPE: MessageTypes.INIT_OK, "in_reply_to": body[BodyFiels.MSG_ID]}
+            return {
+                BodyFiels.TYPE: MessageTypes.INIT_OK,
+                # According to the protocol spec this is optional
+                BodyFiels.REPLY: body[BodyFiels.MSG_ID],
+            }
 
         # Register init handler
         self.handler(init)
@@ -168,13 +108,12 @@ class Node:
 
     async def emit(self, dest: str, body: Optional[Body]) -> None:
         """Emit a message back into the network."""
-        await self.log("Entering emit")
         if body is None:
             return None  # possibly an Exception
         if self.node_id is None:
             return None  # possibly another Exception
         self.message_count += 1
-        body["msg_id"] = self.message_count
+        body[BodyFiels.MSG_ID] = self.message_count
         event = EventData(self.node_id, dest, body)
         await self.transport.send(event)
 
@@ -194,10 +133,11 @@ class Node:
     async def process_message(self, event: EventData) -> None:
         """Call the handler of the given message."""
         await self.log("Entering handle")
-        if marker := event.body.get(BodyFiels.TYPE, None):
-            await self.log(f"marker is {marker}")
-            await self.log(f"handlers are {self.handlers}")
-            if func := self.handlers.get(marker, None):
+        if message_type := event.body.get(BodyFiels.TYPE, None):
+            await self.log(f"Received message of type {message_type}")
+            if message_type not in list(MessageTypes):
+                await self.log(f"{message_type} is not a valid message")
+                return  # or throw an exception
+            if func := self.handlers.get(message_type, None):
                 response = await func(event.body)
-                await self.log(f"response is {response}")
                 await self.emit(event.src, response)
