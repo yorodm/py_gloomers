@@ -43,18 +43,13 @@ class StdIOTransport(AbstractTransport):
         """Return true if connection is still open."""
         return not self.connection_lost.is_set()
 
-    async def read(self) -> Optional[EventData]:
+    async def read(self) -> Optional[str]:
         """Read data from the underlying connection."""
         line = await self.loop.run_in_executor(None, sys.stdin.readline)
         if not line:
             self.connection_lost.set()
             return None
-        data = json.loads(line.strip())
-        return EventData(
-            data[MessageFields.SRC],
-            data[MessageFields.DEST],
-            data[MessageFields.BODY],  # noqa
-        )
+        return line
 
     async def send(self, data: EventData):
         """Send data to the underlying connection."""
@@ -63,6 +58,14 @@ class StdIOTransport(AbstractTransport):
         await log(f"Sending {output} to the network")
         async with self.output_lock:
             await self.loop.run_in_executor(None, lambda: print(output, flush=True))  # noqa
+
+
+def reply_to(body: Body):
+    """Return in reply to."""
+    if body.get(BodyFiels.MSG_ID, False):
+        return {BodyFiels.REPLY: body.get(BodyFiels.MSG_ID)}
+    else:
+        return {}
 
 
 class Node:
@@ -96,25 +99,32 @@ class Node:
             self.node_ids = body.get(BodyFiels.NODE_IDS, [])
             return {
                 BodyFiels.TYPE: MessageTypes.INIT_OK,
-                # According to the protocol spec this is optional
-                BodyFiels.REPLY: body[BodyFiels.MSG_ID],
-            }
+            } | reply_to(body)
 
         # Register init handler
         self.handler(init)
 
-    async def start_serving(self, loop: asyncio.AbstractEventLoop):
+    async def start_serving(self):
         """Start the node server."""
-        self.loop = loop
+        self.loop = asyncio.get_event_loop()
         await self.transport.connect(self.loop)
         while self.transport.connection_open():
-            data = await self.transport.read()
-            if data is None:
+            line = await self.transport.read()
+            if line is None:
                 continue  # Check the protocol docs
             try:
-                await self.process_message(data)
+                data = json.loads(line)
+                event = EventData(
+                    data[MessageFields.SRC],
+                    data[MessageFields.DEST],
+                    data[MessageFields.BODY],  # noqa
+                )
+                await self.process_message(event)
             except MessageError as err:
-                await self.emit(data.src, err.to_message())
+                await self.emit(event.src, err.to_message())
+            except KeyError:
+                error = MessageError(ErrorType.BAD_REQ)
+                await self.emit(event.src, error.to_message())
 
     async def emit(self, dest: str, body: Optional[Body]) -> None:
         """Emit a message back into the network."""
@@ -149,3 +159,7 @@ class Node:
             if func := self.handlers.get(message_type, None):
                 response = await func(event.body)
                 await self.emit(event.src, response)
+
+    def run(self):
+        """Run the node."""
+        asyncio.run(self.start_serving())

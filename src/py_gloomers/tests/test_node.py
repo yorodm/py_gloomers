@@ -26,14 +26,20 @@ class TestTransport(IsolatedAsyncioTestCase):
         transport = StdIOTransport()
         await transport.connect(loop)
         # When
-        data: Optional[EventData] = await transport.read()
+        data: Optional[str] = await transport.read()
         # Then
         assert data is not None
-        assert asdict(data) == json.loads(ECHO_MESSAGE)
+        serialized = json.loads(data)
+        assert serialized == json.loads(ECHO_MESSAGE)
         # When
-        await transport.send(data)
+        event = EventData(
+            serialized[MessageFields.SRC],
+            serialized[MessageFields.DEST],
+            serialized[MessageFields.BODY],  # noqa
+        )
+        await transport.send(event)
         # Then
-        assert stdout.getvalue().strip() == json.dumps(asdict(data))
+        assert stdout.getvalue().strip() == json.dumps(asdict(event))
         # When
         data = await transport.read()
         # Then
@@ -56,14 +62,9 @@ class ListBasedTransport(AbstractTransport):
     async def connect(self, _: asyncio.AbstractEventLoop) -> None:
         pass
 
-    async def read(self) -> Optional[EventData]:
+    async def read(self) -> Optional[str]:
         if len(self.input_buffer):
-            data = json.loads(self.input_buffer.pop(0))
-            return EventData(
-                data[MessageFields.SRC],
-                data[MessageFields.DEST],
-                data[MessageFields.BODY],  # noqa
-            )
+            return self.input_buffer.pop(0)
         return None
 
     def connection_open(self) -> bool:
@@ -80,10 +81,23 @@ class TestNode(IsolatedAsyncioTestCase):
         transport = ListBasedTransport(input_data)
         node = Node(transport=transport)
         # When
-        await node.start_serving(asyncio.get_event_loop())
+        await node.start_serving()
         # Then
         response = transport.output_buffer.pop(0)
         # We respon with init_ok
         assert response[MessageFields.BODY][BodyFiels.TYPE] == MessageTypes.INIT_OK  # noqa
         # The node is initialized
         assert node.node_id == "n3"
+
+    async def test_error(self) -> None:
+        # Given
+        input_data = [
+            INIT_MESSAGE,
+            "{}"
+        ]
+        transport = ListBasedTransport(input_data)
+        node = Node(transport=transport)
+        # When
+        await node.start_serving()
+        response = transport.output_buffer[1]
+        assert response[MessageFields.BODY][BodyFiels.TYPE] == MessageTypes.ERROR  # noqa

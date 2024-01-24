@@ -102,7 +102,7 @@ class AbstractTransport(ABC):
         """Connect the transport."""
 
     @abstractmethod
-    async def read(self) -> Optional[EventData]:
+    async def read(self) -> Optional[str]:
         """Receive data using this transport."""
 
     @abstractmethod
