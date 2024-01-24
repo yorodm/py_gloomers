@@ -15,15 +15,18 @@ ID_FIELD = "id"
 async def generate(body: Body) -> Optional[Body]:
     """Generate workload."""
     await log("Processing unique-ids message")
+    reply = (
+        {BodyFiels.REPLY: body.get(BodyFiels.MSG_ID)}
+        if body.get(BodyFiels.MSG_ID, False)
+        else {}
+    )
     return {
-        BodyFiels.TYPE: MessageTypes.GENERATE_OK,
-        # Remember this are optional
-        BodyFiels.MSG_ID: body.get(BodyFiels.MSG_ID),
+        BodyFiels.TYPE: MessageTypes.GEN_OK,
         ID_FIELD: str(uuid.uuid4()),
-    }
+    } | reply
 
 
-def main():
+def main():  # noqa
     run(node)
 
 

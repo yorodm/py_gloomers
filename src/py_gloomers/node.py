@@ -6,7 +6,8 @@ import functools
 from typing import Optional
 from dataclasses import asdict
 from py_gloomers.types import AbstractTransport, EventData, Body
-from py_gloomers.types import MessageFields, MessageTypes, BodyFiels
+from py_gloomers.types import MessageFields, MessageTypes, BodyFiels, \
+    MessageError, ErrorType
 from py_gloomers.types import Handler
 
 
@@ -110,7 +111,10 @@ class Node:
             data = await self.transport.read()
             if data is None:
                 continue  # Check the protocol docs
-            await self.process_message(data)
+            try:
+                await self.process_message(data)
+            except MessageError as err:
+                await self.emit(data.src, err.to_message())
 
     async def emit(self, dest: str, body: Optional[Body]) -> None:
         """Emit a message back into the network."""
@@ -141,8 +145,7 @@ class Node:
         if message_type := event.body.get(BodyFiels.TYPE, None):
             await log(f"Received message of type {message_type}")
             if message_type not in list(MessageTypes):
-                await log(f"{message_type} is not a valid message")
-                return  # or throw an exception
+                raise MessageError(ErrorType.BAD_REQ)
             if func := self.handlers.get(message_type, None):
                 response = await func(event.body)
                 await self.emit(event.src, response)

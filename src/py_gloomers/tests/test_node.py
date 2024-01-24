@@ -44,7 +44,7 @@ class TestTransport(IsolatedAsyncioTestCase):
 class ListBasedTransport(AbstractTransport):
 
     input_buffer: list[str]
-    output_buffer: list[dict[str,Any]]
+    output_buffer: list[dict[str, Any]]
 
     def __init__(self, input_data: list[str]):
         self.input_buffer = input_data
