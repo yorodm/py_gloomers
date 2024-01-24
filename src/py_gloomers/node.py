@@ -72,21 +72,23 @@ class Node:
     """Definition for the node."""
 
     transport: AbstractTransport
-    handlers: dict[str, Handler]
+    __handlers: dict[str, Handler]
     loop: asyncio.AbstractEventLoop
     node_id: Optional[str]  # Initially we have no name
     node_ids: list[str]
     message_count: int
     err_lock: asyncio.Lock
+    callbacks: dict[int, asyncio.Future[Body]]
 
     def __init__(self, transport: AbstractTransport) -> None:
         """Create a node and set up its internal state."""
         self.transport = transport
-        self.message_count = 0
-        self.handlers = dict()
+        self.message_count = 1
+        self.__handlers = dict()
         # We are using this as a marker for the init status
         self.node_id = None
         self.err_lock = asyncio.Lock()
+        self.callbacks = dict()
 
         async def init(body: Optional[Body]) -> Optional[Body]:
             """Handle init message from the network."""
@@ -121,10 +123,11 @@ class Node:
                 )
                 await self.process_message(event)
             except MessageError as err:
+                await log(f"Detected {err} while processing data")
                 await self.emit(event.src, err.to_message())
             except KeyError:
-                error = MessageError(ErrorType.BAD_REQ)
-                await self.emit(event.src, error.to_message())
+                await log(f"Ignoring malformed message {line}")
+                continue  # check the protocol docs
 
     async def emit(self, dest: str, body: Optional[Body]) -> None:
         """Emit a message back into the network."""
@@ -140,23 +143,35 @@ class Node:
     async def rpc(
         self,
         dest: str,
-        message_type: MessageTypes,
         body: Body,
-        callback: Handler,  # noqa
-    ):
+    ) -> Body:
         """Make an rpc call and wait for a response."""
+        await log(f"Making rpc call {body}")
+        fut = self.loop.create_future()
+        self.callbacks[self.message_count] = fut
+        await self.emit(dest, body)
+        await log(f"Callbacks es {self.callbacks}")
+        async with asyncio.timeout(10):
+            return await fut
 
     def handler(self, func: Handler):
         """Register a handler for a given message."""
-        self.handlers[func.__name__] = func
+        self.__handlers[func.__name__] = func
 
     async def process_message(self, event: EventData) -> None:
         """Call the handler of the given message."""
+        # Handle RPC messages
+        await log(f"Got event ${event}")
+        if (reply := event.body.get(BodyFiels.REPLY, None)) is not None:
+            if (fut := self.callbacks.pop(reply, None)) is not None:
+                fut.set_result(event.body)
+                return
+        # Handle regular messages
         if message_type := event.body.get(BodyFiels.TYPE, None):
             await log(f"Received message of type {message_type}")
             if message_type not in list(MessageTypes):
                 raise MessageError(ErrorType.BAD_REQ)
-            if func := self.handlers.get(message_type, None):
+            if func := self.__handlers.get(message_type, None):
                 response = await func(event.body)
                 await self.emit(event.src, response)
 
