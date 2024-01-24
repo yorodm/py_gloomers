@@ -31,6 +31,8 @@ class MessageTypes(StrEnum):
     ECHO_OK = "echo_ok"
     INIT = "init"
     INIT_OK = "init_ok"
+    GENERATE = "generate"
+    GENERATE_OK = "generate_ok"
 
 
 class MessageFields(StrEnum):

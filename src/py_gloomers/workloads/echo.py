@@ -1,30 +1,30 @@
 """Echo module."""
-import asyncio
+import enum
 from typing import Optional
-from py_gloomers.node import Node, StdIOTransport, Body
+from py_gloomers.node import Node, StdIOTransport, Body, log
+from py_gloomers.types import BodyFiels, MessageTypes
+from .support import run
 
 
 node = Node(transport=StdIOTransport())
 
-
-async def start():
-    """Entry point for echo."""
-    await node.start_serving(asyncio.get_event_loop())
-
-
-def main():
-    """Enty point for script."""
-    asyncio.run(start())
+ECHO_FIELD = "echo"
 
 
 @node.handler
 async def echo(body: Body) -> Optional[Body]:
     """Worload for echo."""
+    await log("Processing echo message")
     return {
-        "type": "echo_ok",
-        "in_reply_to": body.get("msg_id"),
-        "echo": body.get("echo"),
+        BodyFiels.TYPE: MessageTypes.ECHO_OK,
+        # This is optional
+        BodyFiels.REPLY: body.get(BodyFiels.MSG_ID),
+        ECHO_FIELD: body.get(ECHO_FIELD),
     }
+
+
+def main():
+    run(node)
 
 
 if __name__ == "__main__":

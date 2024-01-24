@@ -7,6 +7,6 @@ async def start(node: Node):
     await node.start_serving(asyncio.get_event_loop())
 
 
-def main(node: Node):
+def run(node: Node):
     """Enty point for script."""
     asyncio.run(start(node))

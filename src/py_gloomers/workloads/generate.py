@@ -1,31 +1,30 @@
 """Generate workload."""
-import asyncio
 import uuid
-from py_gloomers.node import StdIOTransport, Node, Body
 from typing import Optional
+from py_gloomers.node import StdIOTransport, Node, Body, log
+from py_gloomers.types import MessageTypes, BodyFiels
+from .support import run
 
 node = Node(transport=StdIOTransport())
 
 
-async def start():
-    """Start the workload."""
-    loop = asyncio.get_event_loop()
-    await node.start_serving(loop)
+ID_FIELD = "id"
 
 
 @node.handler
 async def generate(body: Body) -> Optional[Body]:
     """Generate workload."""
+    await log("Processing unique-ids message")
     return {
-        "type": "generate_ok",
-        "in_reply_to": body.get("msg_id"),
-        "id": uuid.uuid4().int
+        BodyFiels.TYPE: MessageTypes.GENERATE_OK,
+        # Remember this are optional
+        BodyFiels.MSG_ID: body.get(BodyFiels.MSG_ID),
+        ID_FIELD: str(uuid.uuid4()),
     }
 
 
 def main():
-    """Entry point."""
-    asyncio.run(start())
+    run(node)
 
 
 if __name__ == "__main__":

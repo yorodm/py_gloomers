@@ -10,6 +10,18 @@ from py_gloomers.types import MessageFields, MessageTypes, BodyFiels
 from py_gloomers.types import Handler
 
 
+__ERR_LOCK = asyncio.Lock()
+
+
+async def log(message: str):
+    """Log a message to stderr."""
+    async with __ERR_LOCK:
+        asyncio.get_event_loop().run_in_executor(
+            None,
+            functools.partial(print, message, file=sys.stderr, flush=True)
+        )
+
+
 class StdIOTransport(AbstractTransport):
     """A transport that uses stdio for communication."""
 
@@ -47,6 +59,7 @@ class StdIOTransport(AbstractTransport):
         """Send data to the underlying connection."""
         output = json.dumps(asdict(data))
         # It prevents us from making a mess out of stdout
+        await log(f"Sending {output} to the network")
         async with self.output_lock:
             await self.loop.run_in_executor(None, lambda: print(output, flush=True))  # noqa
 
@@ -73,7 +86,7 @@ class Node:
 
         async def init(body: Optional[Body]) -> Optional[Body]:
             """Handle init message from the network."""
-            await self.log("Initializing node after init message")
+            await log("Initializing node after init message")
             if self.node_id:
                 pass  # Exception we've been initialized already
             if body is None:
@@ -88,13 +101,6 @@ class Node:
 
         # Register init handler
         self.handler(init)
-
-    async def log(self, message: str):
-        """Log a message to stderr."""
-        async with self.err_lock:
-            self.loop.call_soon(
-                functools.partial(print, message, file=sys.stderr, flush=True)
-            )
 
     async def start_serving(self, loop: asyncio.AbstractEventLoop):
         """Start the node server."""
@@ -115,6 +121,7 @@ class Node:
         self.message_count += 1
         body[BodyFiels.MSG_ID] = self.message_count
         event = EventData(self.node_id, dest, body)
+        await log(f"Sending {event} to the network")
         await self.transport.send(event)
 
     async def rpc(
@@ -132,11 +139,10 @@ class Node:
 
     async def process_message(self, event: EventData) -> None:
         """Call the handler of the given message."""
-        await self.log("Entering handle")
         if message_type := event.body.get(BodyFiels.TYPE, None):
-            await self.log(f"Received message of type {message_type}")
+            await log(f"Received message of type {message_type}")
             if message_type not in list(MessageTypes):
-                await self.log(f"{message_type} is not a valid message")
+                await log(f"{message_type} is not a valid message")
                 return  # or throw an exception
             if func := self.handlers.get(message_type, None):
                 response = await func(event.body)
