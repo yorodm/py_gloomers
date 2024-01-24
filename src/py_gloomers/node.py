@@ -121,7 +121,6 @@ class Node:
         self.message_count += 1
         body[BodyFiels.MSG_ID] = self.message_count
         event = EventData(self.node_id, dest, body)
-        await log(f"Sending {event} to the network")
         await self.transport.send(event)
 
     async def rpc(
