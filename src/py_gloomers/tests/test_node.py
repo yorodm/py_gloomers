@@ -28,9 +28,9 @@ class TestTransport(IsolatedAsyncioTestCase):
         # When
         data: Optional[str] = await transport.read()
         # Then
-        assert data is not None
-        serialized = json.loads(data)
-        assert serialized == json.loads(ECHO_MESSAGE)
+        self.assertIsNotNone(data)
+        serialized = json.loads(data)  # ignore this warning
+        self.assertEqual(serialized, json.loads(ECHO_MESSAGE))
         # When
         event = EventData(
             serialized[MessageFields.SRC],
@@ -39,12 +39,12 @@ class TestTransport(IsolatedAsyncioTestCase):
         )
         await transport.send(event)
         # Then
-        assert stdout.getvalue().strip() == json.dumps(asdict(event))
+        self.assertEqual(stdout.getvalue().strip(), json.dumps(asdict(event)))
         # When
         data = await transport.read()
         # Then
-        assert data is None
-        assert transport.connection_open() is False
+        self.assertIsNone(data)
+        self.assertFalse(transport.connection_open())
 
 
 class ListBasedTransport(AbstractTransport):
@@ -71,6 +71,27 @@ class ListBasedTransport(AbstractTransport):
         return len(self.input_buffer) != 0
 
 
+class EventBasedTransport(ListBasedTransport):
+
+    input_buffer: asyncio.Queue[str]
+    output_buffer: list[dict[str, Any]]
+    event: asyncio.Event
+
+    def __init__(self, input_data: list[str]):
+        super().__init__(input_data)
+        self.event = asyncio.Event()
+
+    async def set(self):
+        # Yes I know, but we need to run this in a TaskGroup
+        self.event.set()
+
+    async def read(self) -> Optional[str]:
+        await self.event.wait()
+        value = await super().read()
+        self.event.clear()
+        return value
+
+
 class TestNode(IsolatedAsyncioTestCase):
 
     async def test_init(self) -> None:
@@ -85,11 +106,11 @@ class TestNode(IsolatedAsyncioTestCase):
         # Then
         response = transport.output_buffer.pop(0)
         # We respon with init_ok
-        assert response[MessageFields.BODY][BodyFiels.TYPE] == MessageTypes.INIT_OK  # noqa
+        self.assertEqual(response[MessageFields.BODY][BodyFiels.TYPE], MessageTypes.INIT_OK)  # noqa
         # The node is initialized
-        assert node.node_id == "n3"
+        self.assertEqual(node.node_id, "n3")
 
-    async def test_error(self) -> None:
+    async def test_malformed(self) -> None:
         # Given
         input_data = [
             INIT_MESSAGE,
@@ -99,5 +120,30 @@ class TestNode(IsolatedAsyncioTestCase):
         node = Node(transport=transport)
         # When
         await node.start_serving()
-        response = transport.output_buffer[1]
-        assert response[MessageFields.BODY][BodyFiels.TYPE] == MessageTypes.ERROR  # noqa
+        self.assertEqual(len(transport.output_buffer), 1)
+
+    async def test_rpc(self):
+        rpc_send = {
+            "type": "rpc_send"
+        }
+        rpc_reply = {
+            MessageFields.SRC: "c0",
+            MessageFields.DEST: "n1",
+            MessageFields.BODY: {
+                BodyFiels.TYPE: "rpc_reply",
+                BodyFiels.REPLY: 2
+            }
+        }
+        input_data = [
+            INIT_MESSAGE,
+            json.dumps(rpc_reply)
+        ]
+        transport = EventBasedTransport(input_data)
+        await transport.set()
+        node = Node(transport=transport)
+        async with asyncio.TaskGroup() as group:
+            group.create_task(node.start_serving())
+            rpc_response = group.create_task(node.rpc("c0", rpc_send))
+            group.create_task(transport.set())
+        self.assertEqual(len(node.callbacks), 0)
+        self.assertEqual(rpc_response.result(), rpc_reply[MessageFields.BODY])
