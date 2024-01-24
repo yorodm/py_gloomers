@@ -7,7 +7,7 @@ from py_gloomers.types import BodyFiels, MessageTypes
 
 node = Node(transport=StdIOTransport())
 
-ECHO_FIELD = "echo"
+INPUT_FIELD = "echo"
 
 
 @node.handler
@@ -16,7 +16,7 @@ async def echo(body: Body) -> Optional[Body]:
     await log("Processing echo message")
     return {
         BodyFiels.TYPE: MessageTypes.ECHO_OK,
-        ECHO_FIELD: body.get(ECHO_FIELD),
+        INPUT_FIELD: body.get(INPUT_FIELD),
     } | reply_to(body)
 
 

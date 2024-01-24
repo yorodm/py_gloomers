@@ -30,6 +30,10 @@ class MessageTypes(StrEnum):
     BROAD = "broadcast"
     BROAD_OK = "broadcast_ok"
     ERROR = "error"
+    READ = "read"
+    READ_OK = "read_ok"
+    TOPOLOGY = "topology"
+    TOPOLOGY_OK = "topology_ok"
 
 
 class MessageFields(StrEnum):
@@ -83,9 +87,7 @@ class MessageError(Exception):
 
     def to_message(self):
         """Turn this into an error message."""
-        return {
-            BodyFiels.TYPE: MessageTypes.ERROR, "code": self.error.value
-        } | (
+        return {BodyFiels.TYPE: MessageTypes.ERROR, "code": self.error.value} | (
             {BodyFiels.REPLY: self.reply} if self.reply is not None else {}
         )
 
