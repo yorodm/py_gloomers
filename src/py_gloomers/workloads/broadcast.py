@@ -47,7 +47,9 @@ async def topology(body: Body) -> Optional[Body]:
     """Part of the broadcast workload."""
     await log("Processing topology")
     if network := body.get(TOPOLOGY_FIELD, False):
+        await log(f"Our network is {network}")
         cluster: list[str] = network.get(node.node_id, [])
+        await log(f"Our cluster is {cluster}")
         for member in cluster:
             node.add_worker(gossiper(member))
     else:
@@ -60,6 +62,7 @@ async def topology(body: Body) -> Optional[Body]:
 async def gossiper(dest: str):
     """Send data to a node."""
     sent = set()
+    await log(f"Creating worker for node {dest}")
 
     def create_broadcast(v: int) -> Body:
         return {

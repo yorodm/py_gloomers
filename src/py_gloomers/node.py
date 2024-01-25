@@ -179,7 +179,9 @@ class Node:
         # Handle RPC messages
         await log(f"Got event ${event}")
         if (reply := event.body.get(BodyFields.REPLY, None)) is not None:
+            await log(f"Event is in reply to {reply}")
             if (fut := self.callbacks.pop(reply, None)) is not None:
+                await log(f"Setting callback result to {event.body}")
                 fut.set_result(event.body)
                 return
         # Handle regular messages
