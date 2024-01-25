@@ -3,7 +3,7 @@ import uuid
 from typing import Optional
 from py_gloomers.node import StdIOTransport, Node, Body, \
     log, reply_to
-from py_gloomers.types import MessageTypes, BodyFiels
+from py_gloomers.types import MessageTypes, BodyFields
 
 
 node = Node(transport=StdIOTransport())
@@ -17,7 +17,7 @@ async def generate(body: Body) -> Optional[Body]:
     """Generate workload."""
     await log("Processing unique-ids message")
     return {
-        BodyFiels.TYPE: MessageTypes.GEN_OK,
+        BodyFields.TYPE: MessageTypes.GEN_OK,
         INPUT_FIELD: str(uuid.uuid4()),
     } | reply_to(body)
 

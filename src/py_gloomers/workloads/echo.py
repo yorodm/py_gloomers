@@ -2,7 +2,7 @@
 from typing import Optional
 from py_gloomers.node import Node, StdIOTransport, Body, \
     log, reply_to
-from py_gloomers.types import BodyFiels, MessageTypes
+from py_gloomers.types import BodyFields, MessageTypes
 
 
 node = Node(transport=StdIOTransport())
@@ -15,7 +15,7 @@ async def echo(body: Body) -> Optional[Body]:
     """Worload for echo."""
     await log("Processing echo message")
     return {
-        BodyFiels.TYPE: MessageTypes.ECHO_OK,
+        BodyFields.TYPE: MessageTypes.ECHO_OK,
         INPUT_FIELD: body.get(INPUT_FIELD),
     } | reply_to(body)
 

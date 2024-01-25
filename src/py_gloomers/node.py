@@ -6,7 +6,7 @@ import functools
 from typing import Optional, Union
 from dataclasses import asdict
 from py_gloomers.types import AbstractTransport, EventData, Body
-from py_gloomers.types import MessageFields, MessageTypes, BodyFiels, \
+from py_gloomers.types import MessageFields, MessageTypes, BodyFields, \
     MessageError, ErrorType
 from py_gloomers.types import Handler, Worker, Timeout
 
@@ -62,8 +62,8 @@ class StdIOTransport(AbstractTransport):
 
 def reply_to(body: Body):
     """Return in reply to."""
-    if body.get(BodyFiels.MSG_ID, False):
-        return {BodyFiels.REPLY: body.get(BodyFiels.MSG_ID)}
+    if body.get(BodyFields.MSG_ID, False):
+        return {BodyFields.REPLY: body.get(BodyFields.MSG_ID)}
     else:
         return {}
 
@@ -100,10 +100,10 @@ class Node:
                 pass  # Exception we've been initialized already
             if body is None:
                 return None  # Exception, we need a body here
-            self.node_id = body[BodyFiels.NODE_ID]
-            self.node_ids = body.get(BodyFiels.NODE_IDS, [])
+            self.node_id = body[BodyFields.NODE_ID]
+            self.node_ids = body.get(BodyFields.NODE_IDS, [])
             return {
-                BodyFiels.TYPE: MessageTypes.INIT_OK,
+                BodyFields.TYPE: MessageTypes.INIT_OK,
             } | reply_to(body)
 
         # Register init handler
@@ -138,7 +138,7 @@ class Node:
         if self.node_id is None:
             return None  # possibly another Exception
         self.message_count += 1
-        body[BodyFiels.MSG_ID] = self.message_count
+        body[BodyFields.MSG_ID] = self.message_count
         event = EventData(self.node_id, dest, body)
         await self.transport.send(event)
 
@@ -157,7 +157,7 @@ class Node:
             async with asyncio.timeout(10):  # Lower this maybe?
                 return await fut
         except TimeoutError:
-            return Timeout()
+            return Timeout(body)
 
     def add_worker(self, worker: Worker):
         """Add a worker task to run in the node."""
@@ -176,12 +176,12 @@ class Node:
         """Call the handler of the given message."""
         # Handle RPC messages
         await log(f"Got event ${event}")
-        if (reply := event.body.get(BodyFiels.REPLY, None)) is not None:
+        if (reply := event.body.get(BodyFields.REPLY, None)) is not None:
             if (fut := self.callbacks.pop(reply, None)) is not None:
                 fut.set_result(event.body)
                 return
         # Handle regular messages
-        if message_type := event.body.get(BodyFiels.TYPE, None):
+        if message_type := event.body.get(BodyFields.TYPE, None):
             await log(f"Received message of type {message_type}")
             if message_type not in list(MessageTypes):
                 raise MessageError(ErrorType.BAD_REQ)

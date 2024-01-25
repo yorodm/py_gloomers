@@ -44,7 +44,7 @@ class MessageFields(StrEnum):
     BODY = "body"
 
 
-class BodyFiels(StrEnum):
+class BodyFields(StrEnum):
     """Important fields in message body."""
 
     TYPE = "type"
@@ -87,8 +87,8 @@ class MessageError(Exception):
 
     def to_message(self):
         """Turn this into an error message."""
-        return {BodyFiels.TYPE: MessageTypes.ERROR, "code": self.error.value} | (
-            {BodyFiels.REPLY: self.reply} if self.reply is not None else {}
+        return {BodyFields.TYPE: MessageTypes.ERROR, "code": self.error.value} | (
+            {BodyFields.REPLY: self.reply} if self.reply is not None else {}
         )
 
 
@@ -114,6 +114,10 @@ class AbstractTransport(ABC):
 
 class Timeout:
     """Marker class to indicate timeouts."""
+
+    def __init__(self, wraped: Any):
+        """Create a new timeout."""
+        self.wraped = wraped
 
 
 Handler: TypeAlias = Callable[[Body], Awaitable[Optional[Body]]]

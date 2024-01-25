@@ -1,19 +1,17 @@
 """Workload for broadcast."""
 import asyncio
-from typing import Optional
+from typing import Optional, Coroutine
 from py_gloomers.node import Node, StdIOTransport, Body, log
-from py_gloomers.types import BodyFiels, MessageTypes, MessageError, \
-    ErrorType
+from py_gloomers.types import BodyFields, MessageTypes, MessageError, \
+    ErrorType, Timeout
 from py_gloomers.node import reply_to
 
 
 node = Node(transport=StdIOTransport())
 
-ECHO_FIELD = "echo"
-
-
 values: set[int] = set()
 cluster: list[str] = []
+new_data: asyncio.Event = asyncio.Event()
 INPUT_FIELD = "message"
 REPLY_FIELD = "messages"
 TOPOLOGY_FIELD = "topology"
@@ -28,7 +26,7 @@ async def broadcast(body: Body) -> Optional[Body]:
         raise MessageError(ErrorType.BAD_REQ)
     values.add(value)
     return {
-        BodyFiels.TYPE: MessageTypes.BROAD_OK,
+        BodyFields.TYPE: MessageTypes.BROAD_OK,
     } | reply_to(body)
 
 
@@ -37,7 +35,7 @@ async def read(body: Body) -> Optional[Body]:
     """Part of the broadcast workload."""
     await log("Processing read message")
     return {
-        BodyFiels.TYPE: MessageTypes.READ_OK,
+        BodyFields.TYPE: MessageTypes.READ_OK,
         REPLY_FIELD: list(values)
     } | reply_to(body)
 
@@ -53,22 +51,41 @@ async def topology(body: Body) -> Optional[Body]:
     else:
         raise MessageError(ErrorType.BAD_REQ)
     return {
-        BodyFiels.TYPE: MessageTypes.TOPOLOGY_OK
+        BodyFields.TYPE: MessageTypes.TOPOLOGY_OK
     } | reply_to(body)
-
 
 
 async def gossiper(dest: str):
     """Send data to a node."""
     sent = set()
+
+    def create_broadcast(v: int) -> Body:
+        return {
+            BodyFields.TYPE: MessageTypes.BROAD,
+            INPUT_FIELD: v
+        }
+
+    def annotate(w: Coroutine, value: int) -> asyncio.Task:
+        task = asyncio.create_task(w)
+
+        def update_sent(t: asyncio.Task):
+            if isinstance(task.result(), dict):
+                sent.add(value)
+
+        task.add_done_callback(update_sent)
+        return task
+
     while True:
         # 1. See if we have new values to send.
         # 2. Rpc message with values.
         # 3. If rpc was a success mark values as sent (add to the set)
         # 4. wait for event saying we have new values
-
-        pass
-
+        new_data = (sent - values)
+        tasks = [
+            annotate(node.rpc(dest, create_broadcast(v)), v) for v in new_data
+        ]
+        asyncio.gather(*tasks)  # we don't care about results
+        # If I use an event here for point 4 how would I clear it?
 
 def main():  # noqa
     node.run()

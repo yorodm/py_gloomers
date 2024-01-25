@@ -7,7 +7,7 @@ from unittest.mock import patch
 from unittest import IsolatedAsyncioTestCase
 from py_gloomers.node import StdIOTransport, Node
 from py_gloomers.types import AbstractTransport, EventData
-from py_gloomers.types import MessageFields, BodyFiels, MessageTypes
+from py_gloomers.types import MessageFields, BodyFields, MessageTypes
 
 
 
@@ -29,6 +29,7 @@ class TestTransport(IsolatedAsyncioTestCase):
         data: Optional[str] = await transport.read()
         # Then
         self.assertIsNotNone(data)
+        assert data is not None
         serialized = json.loads(data)  # ignore this warning
         self.assertEqual(serialized, json.loads(ECHO_MESSAGE))
         # When
@@ -104,7 +105,7 @@ class TestNode(IsolatedAsyncioTestCase):
         # Then
         response = transport.output_buffer.pop(0)
         # We respon with init_ok
-        self.assertEqual(response[MessageFields.BODY][BodyFiels.TYPE], MessageTypes.INIT_OK)  # noqa
+        self.assertEqual(response[MessageFields.BODY][BodyFields.TYPE], MessageTypes.INIT_OK)  # noqa
         # The node is initialized
         self.assertEqual(node.node_id, "n3")
 
@@ -128,8 +129,8 @@ class TestNode(IsolatedAsyncioTestCase):
             MessageFields.SRC: "c0",
             MessageFields.DEST: "n1",
             MessageFields.BODY: {
-                BodyFiels.TYPE: "rpc_reply",
-                BodyFiels.REPLY: 2
+                BodyFields.TYPE: "rpc_reply",
+                BodyFields.REPLY: 2
             }
         }
         input_data = [
