@@ -24,9 +24,10 @@ async def broadcast(body: Body) -> Optional[Body]:
     value = body.get(INPUT_FIELD, None)
     if value is None:
         raise MessageError(ErrorType.BAD_REQ)
-    values.add(value)
-    async with run_condition:
-        run_condition.notify_all()
+    if value not in values:
+        values.add(value)
+        async with run_condition:
+            run_condition.notify_all()
     return {
         BodyFields.TYPE: MessageTypes.BROAD_OK,
     } | reply_to(body)
