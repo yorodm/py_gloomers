@@ -97,6 +97,9 @@ async def gossiper(dest: str):
                     node.rpc(dest, create_broadcast(v)), v
                 ) for v in new_data
             ]
+            # In case one of these tasks fails (rpc returns Timeout)
+            # the corresponding value will not be added to the set so
+            # it should be retried on the next notification
             asyncio.gather(*tasks)  # we don't care about results
 
 def main():  # noqa
