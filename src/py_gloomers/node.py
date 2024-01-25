@@ -126,6 +126,10 @@ class Node:
             except KeyError:
                 await log(f"Ignoring malformed message {line}")
                 continue  # check the protocol docs
+        for call in self.callbacks.items():
+            call.cancel()
+        for worker in self.workers:
+            worker.cancel()
 
     async def emit(self, dest: str, body: Optional[Body]) -> None:
         """Emit a message back into the network."""
@@ -146,13 +150,15 @@ class Node:
         """Make an rpc call and wait for a response."""
         await log(f"Making rpc call {body}")
         fut = self.loop.create_future()
-        self.callbacks[self.message_count] = fut
+        index = self.message_count
+        self.callbacks[index] = fut
         await self.emit(dest, body)
-        await log(f"Callbacks es {self.callbacks}")
         try:
             async with asyncio.timeout(10):  # Lower this maybe?
                 return await fut
         except TimeoutError:
+            fut = self.callbacks.pop(index)
+            fut.cancel()
             return Timeout(body)
 
     def add_worker(self, worker: Worker):
