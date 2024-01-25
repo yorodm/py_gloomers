@@ -24,7 +24,6 @@ class TestTransport(IsolatedAsyncioTestCase):
         # Given
         loop = asyncio.get_event_loop()
         transport = StdIOTransport()
-        await transport.connect(loop)
         # When
         data: Optional[str] = await transport.read()
         # Then
@@ -59,9 +58,6 @@ class ListBasedTransport(AbstractTransport):
 
     async def send(self, data: EventData) -> None:
         self.output_buffer.append(asdict(data))
-
-    async def connect(self, _: asyncio.AbstractEventLoop) -> None:
-        pass
 
     async def read(self) -> Optional[str]:
         if len(self.input_buffer):

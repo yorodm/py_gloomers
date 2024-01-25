@@ -34,10 +34,7 @@ class StdIOTransport(AbstractTransport):
         """Initialize the transport."""
         self.connection_lost = asyncio.Event()
         self.output_lock = asyncio.Lock()
-
-    async def connect(self, loop: asyncio.AbstractEventLoop):
-        """Connect the transport."""
-        self.loop = loop
+        self.loop = asyncio.get_event_loop()
 
     def connection_open(self) -> bool:
         """Return true if connection is still open."""
@@ -111,7 +108,6 @@ class Node:
 
     async def start_serving(self):
         """Start the node server."""
-        await self.transport.connect(self.loop)
         while self.transport.connection_open():
             line = await self.transport.read()
             if line is None:
@@ -191,4 +187,4 @@ class Node:
 
     def run(self):
         """Run the node."""
-        asyncio.run(self.start_serving())
+        self.loop.run_until_complete(self.start_serving())

@@ -102,10 +102,6 @@ class AbstractTransport(ABC):
         """Send data using this transport."""
 
     @abstractmethod
-    async def connect(self, loop: asyncio.AbstractEventLoop) -> None:
-        """Connect the transport."""
-
-    @abstractmethod
     async def read(self) -> Optional[str]:
         """Receive data using this transport."""
 
