@@ -87,7 +87,9 @@ class MessageError(Exception):
 
     def to_message(self):
         """Turn this into an error message."""
-        return {BodyFields.TYPE: MessageTypes.ERROR, "code": self.error.value} | (
+        return {
+            BodyFields.TYPE: MessageTypes.ERROR, "code": self.error.value
+        } | (
             {BodyFields.REPLY: self.reply} if self.reply is not None else {}
         )
 

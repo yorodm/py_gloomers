@@ -3,7 +3,7 @@ import asyncio
 from typing import Optional, Coroutine
 from py_gloomers.node import Node, StdIOTransport, Body, log
 from py_gloomers.types import BodyFields, MessageTypes, MessageError, \
-    ErrorType, Timeout
+    ErrorType
 from py_gloomers.node import reply_to
 
 
@@ -11,7 +11,7 @@ node = Node(transport=StdIOTransport())
 
 values: set[int] = set()
 cluster: list[str] = []
-new_data: asyncio.Event = asyncio.Event()
+run_condition: asyncio.Condition = asyncio.Condition()
 INPUT_FIELD = "message"
 REPLY_FIELD = "messages"
 TOPOLOGY_FIELD = "topology"
@@ -25,6 +25,8 @@ async def broadcast(body: Body) -> Optional[Body]:
     if value is None:
         raise MessageError(ErrorType.BAD_REQ)
     values.add(value)
+    async with run_condition:
+        run_condition.notify_all()
     return {
         BodyFields.TYPE: MessageTypes.BROAD_OK,
     } | reply_to(body)
@@ -85,7 +87,8 @@ async def gossiper(dest: str):
             annotate(node.rpc(dest, create_broadcast(v)), v) for v in new_data
         ]
         asyncio.gather(*tasks)  # we don't care about results
-        # If I use an event here for point 4 how would I clear it?
+        async with run_condition:
+            await run_condition.wait()
 
 def main():  # noqa
     node.run()
