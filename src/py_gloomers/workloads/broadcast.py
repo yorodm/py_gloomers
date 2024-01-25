@@ -82,17 +82,22 @@ async def gossiper(dest: str):
         return task
 
     while True:
-        # 1. See if we have new values to send.
-        # 2. Rpc message with values.
-        # 3. If rpc was a success mark values as sent (add to the set)
-        # 4. wait for event saying we have new values
-        new_data = (sent - values)
-        tasks = [
-            annotate(node.rpc(dest, create_broadcast(v)), v) for v in new_data
-        ]
-        asyncio.gather(*tasks)  # we don't care about results
         async with run_condition:
             await run_condition.wait()
+            # 1. We have new data to send (calculate it)
+            # 2. Rpc message with values.
+            # 3. If rpc was a success mark values as sent (add to the set)
+            # 4. wait for event saying we have new values
+            new_data = values - sent
+            await log(f"Sent is {sent}")
+            await log(f"Values is {values}")
+            await log(f"New data is {new_data}")
+            tasks = [
+                annotate(
+                    node.rpc(dest, create_broadcast(v)), v
+                ) for v in new_data
+            ]
+            asyncio.gather(*tasks)  # we don't care about results
 
 def main():  # noqa
     node.run()
