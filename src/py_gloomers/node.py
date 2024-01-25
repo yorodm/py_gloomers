@@ -3,12 +3,12 @@ import asyncio
 import sys
 import json
 import functools
-from typing import Optional
+from typing import Optional, Union
 from dataclasses import asdict
 from py_gloomers.types import AbstractTransport, EventData, Body
 from py_gloomers.types import MessageFields, MessageTypes, BodyFiels, \
     MessageError, ErrorType
-from py_gloomers.types import Handler
+from py_gloomers.types import Handler, Worker, Timeout
 
 
 __ERR_LOCK = asyncio.Lock()
@@ -79,6 +79,7 @@ class Node:
     message_count: int
     err_lock: asyncio.Lock
     callbacks: dict[int, asyncio.Future[Body]]
+    workers: list[asyncio.Task]
 
     def __init__(self, transport: AbstractTransport) -> None:
         """Create a node and set up its internal state."""
@@ -89,6 +90,8 @@ class Node:
         self.node_id = None
         self.err_lock = asyncio.Lock()
         self.callbacks = dict()
+        self.workers: list[asyncio.Task] = []
+        self.loop = asyncio.get_event_loop()
 
         async def init(body: Optional[Body]) -> Optional[Body]:
             """Handle init message from the network."""
@@ -108,7 +111,6 @@ class Node:
 
     async def start_serving(self):
         """Start the node server."""
-        self.loop = asyncio.get_event_loop()
         await self.transport.connect(self.loop)
         while self.transport.connection_open():
             line = await self.transport.read()
@@ -144,15 +146,27 @@ class Node:
         self,
         dest: str,
         body: Body,
-    ) -> Body:
+    ) -> Union[Body, Timeout]:
         """Make an rpc call and wait for a response."""
         await log(f"Making rpc call {body}")
         fut = self.loop.create_future()
         self.callbacks[self.message_count] = fut
         await self.emit(dest, body)
         await log(f"Callbacks es {self.callbacks}")
-        async with asyncio.timeout(10):
-            return await fut
+        try:
+            async with asyncio.timeout(10):  # Lower this maybe?
+                return await fut
+        except TimeoutError:
+            return Timeout()
+
+    def add_worker(self, worker: Worker):
+        """Add a worker task to run in the node."""
+        # Do I need to keep track of these?
+        new_worker = self.loop.create_task(worker)
+        # Make sure we remove it after we are done
+        # But what about the ones that run forever?
+        new_worker.add_done_callback(self.workers.remove)
+        self.workers.append(new_worker)
 
     def handler(self, func: Handler):
         """Register a handler for a given message."""

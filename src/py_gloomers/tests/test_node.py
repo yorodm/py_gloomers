@@ -73,8 +73,6 @@ class ListBasedTransport(AbstractTransport):
 
 class EventBasedTransport(ListBasedTransport):
 
-    input_buffer: asyncio.Queue[str]
-    output_buffer: list[dict[str, Any]]
     event: asyncio.Event
 
     def __init__(self, input_data: list[str]):
@@ -147,3 +145,21 @@ class TestNode(IsolatedAsyncioTestCase):
             group.create_task(transport.set())
         self.assertEqual(len(node.callbacks), 0)
         self.assertEqual(rpc_response.result(), rpc_reply[MessageFields.BODY])
+
+    async def test_workers(self):
+        fut = asyncio.get_event_loop().create_future()
+
+        async def set_fut(value: int):
+            fut.set_result(value)
+
+        input_data = [
+            INIT_MESSAGE
+        ]
+        transport = EventBasedTransport(input_data)
+        node = Node(transport=transport)
+        async with asyncio.TaskGroup() as group:
+            group.create_task(node.start_serving())
+            group.create_task(transport.set())
+            node.add_worker(set_fut(10))
+        self.assertEqual(await fut, 10)
+        self.assertTrue(len(node.workers) == 0)

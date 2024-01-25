@@ -12,6 +12,7 @@ requires-python = ">= 3.11"
 [project.scripts]
 echo = "py_gloomers.workloads.echo:main"
 generate = "py_gloomers.workloads.generate:main"
+broadcast = "py_gloomers.workloads.broadcast:main"
 
 [build-system]
 requires = ["hatchling"]

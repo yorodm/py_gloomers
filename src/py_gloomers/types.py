@@ -1,7 +1,7 @@
 """Common types."""
 import asyncio
 from typing import TypeAlias, Any, Optional
-from typing import Callable, Awaitable
+from typing import Callable, Coroutine, Awaitable
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from enum import StrEnum, IntEnum
@@ -112,4 +112,9 @@ class AbstractTransport(ABC):
         """Return true if the connection is still open."""
 
 
+class Timeout:
+    """Marker class to indicate timeouts."""
+
+
 Handler: TypeAlias = Callable[[Body], Awaitable[Optional[Body]]]
+Worker:  TypeAlias = Coroutine
