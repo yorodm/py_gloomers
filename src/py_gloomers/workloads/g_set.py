@@ -2,9 +2,10 @@
 import uuid
 from typing import Optional
 from py_gloomers.node import StdIOTransport, Node, Body, \
-    reply_to
+    reply_to, log
 from py_gloomers.types import MessageTypes, BodyFields, MessageError, \
     ErrorType
+import asyncio
 
 
 node = Node(StdIOTransport())
@@ -64,10 +65,25 @@ async def add(body: Body) -> Optional[Body]:
 async def replicate(body: Body) -> Optional[Body]:
     """Update CRDT with replicated messages."""
     data = body.get(VALUE_FIELD, None)
+    await log(f"Handling message of type replicate with {data}")
     if data is None:
         raise MessageError(ErrorType.BAD_REQ)
     gset.update(data)
+    await log(f"New state is {gset.current_state()}")
     return None
+
+
+@node.worker_func
+async def replicator():
+    """Replicate elements."""
+    while True:
+        await asyncio.sleep(5)
+        body = {
+            BodyFields.TYPE: "replicate",
+            VALUE_FIELD: gset.current_state()
+        }
+        tasks = [node.rpc(x, body) for x in node.dns()]
+        await asyncio.gather(*tasks)
 
 
 def main():

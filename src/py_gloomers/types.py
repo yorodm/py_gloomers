@@ -1,6 +1,6 @@
 """Common types."""
 import asyncio
-from typing import TypeAlias, Any, Optional
+from typing import TypeAlias, Any, Optional, TypeVarTuple
 from typing import Callable, Coroutine, Awaitable
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
@@ -36,6 +36,7 @@ class MessageTypes(StrEnum):
     TOPOLOGY_OK = "topology_ok"
     ADD = "add"
     ADD_OK = "add_ok"
+    CUSTOM_REPLICATE = "replicate"
 
 
 class MessageFields(StrEnum):
@@ -122,3 +123,4 @@ class Timeout:
 
 Handler: TypeAlias = Callable[[Body], Awaitable[Optional[Body]]]
 Worker:  TypeAlias = Coroutine
+WorkerFn: TypeAlias = Callable[[], Coroutine]

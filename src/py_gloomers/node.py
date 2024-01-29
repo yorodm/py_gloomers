@@ -7,7 +7,7 @@ from typing import Optional, Union
 from dataclasses import asdict
 from py_gloomers.types import AbstractTransport, EventData, Body
 from py_gloomers.types import MessageFields, MessageTypes, BodyFields, \
-    MessageError, ErrorType
+    MessageError, ErrorType, WorkerFn
 from py_gloomers.types import Handler, Worker, Timeout
 
 
@@ -64,7 +64,6 @@ def reply_to(body: Body):
     return {}
 
 
-
 class Node:
     """Definition for the node."""
 
@@ -72,7 +71,7 @@ class Node:
     __handlers: dict[str, Handler]
     loop: asyncio.AbstractEventLoop
     node_id: Optional[str]  # Initially we have no name
-    node_ids: list[str]
+    node_ids: set[str]
     message_count: int
     err_lock: asyncio.Lock
     callbacks: dict[int, asyncio.Future[Body]]
@@ -89,6 +88,7 @@ class Node:
         self.callbacks = {}
         self.workers: list[asyncio.Task] = []
         self.loop = asyncio.get_event_loop()
+        self.node_ids = set()
 
         async def init(body: Optional[Body]) -> Optional[Body]:
             """Handle init message from the network."""
@@ -98,7 +98,8 @@ class Node:
             if body is None:
                 return None  # Exception, we need a body here
             self.node_id = body[BodyFields.NODE_ID]
-            self.node_ids = body.get(BodyFields.NODE_IDS, [])
+            self.node_ids.update(body.get(BodyFields.NODE_IDS, []))
+            await log(f"Initialized {self.node_id} in a network with {self.node_ids}")  # noqa
             return {
                 BodyFields.TYPE: MessageTypes.INIT_OK,
             } | reply_to(body)
@@ -161,6 +162,15 @@ class Node:
             fut.cancel()
             return Timeout(body)
 
+    def dns(self) -> set[str]:
+        """
+        Resolve the names of every host we received on init.
+
+        The different between this and topology is that we
+        don't care about partitions here.
+        """
+        return self.node_ids - {self.node_id}
+
     def add_worker(self, worker: Worker):
         """Add a worker task to run in the node."""
         # Do I need to keep track of these?
@@ -169,6 +179,10 @@ class Node:
         # But what about the ones that run forever?
         new_worker.add_done_callback(self.workers.remove)
         self.workers.append(new_worker)
+
+    def worker_func(self, fn: WorkerFn):
+        """Add a worker to run when the node start."""
+        self.add_worker(fn())
 
     def handler(self, func: Handler):
         """Register a handler for a given message."""
