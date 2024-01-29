@@ -61,8 +61,8 @@ def reply_to(body: Body):
     """Return in reply to."""
     if body.get(BodyFields.MSG_ID, False):
         return {BodyFields.REPLY: body.get(BodyFields.MSG_ID)}
-    else:
-        return {}
+    return {}
+
 
 
 class Node:
@@ -82,11 +82,11 @@ class Node:
         """Create a node and set up its internal state."""
         self.transport = transport
         self.message_count = 1
-        self.__handlers = dict()
+        self.__handlers = {}
         # We are using this as a marker for the init status
         self.node_id = None
         self.err_lock = asyncio.Lock()
-        self.callbacks = dict()
+        self.callbacks = {}
         self.workers: list[asyncio.Task] = []
         self.loop = asyncio.get_event_loop()
 
@@ -134,7 +134,7 @@ class Node:
     async def emit(self, dest: str, body: Optional[Body]) -> None:
         """Emit a message back into the network."""
         if body is None:
-            return None  # possibly an Exception
+            return None  # We have handlers that don't return body
         if self.node_id is None:
             return None  # possibly another Exception
         self.message_count += 1
