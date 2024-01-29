@@ -34,6 +34,8 @@ class MessageTypes(StrEnum):
     READ_OK = "read_ok"
     TOPOLOGY = "topology"
     TOPOLOGY_OK = "topology_ok"
+    ADD = "add"
+    ADD_OK = "add_ok"
 
 
 class MessageFields(StrEnum):
