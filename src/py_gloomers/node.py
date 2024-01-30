@@ -210,3 +210,19 @@ class Node:
     def run(self):
         """Run the node."""
         self.loop.run_until_complete(self.start_serving())
+
+
+class Service:
+    """Proxy to access a service."""
+
+    node: Node
+    name: str
+
+    def __init__(self, name: str, node: Node):
+        """Initialize the service."""
+        self.name = name
+        self.node = node
+
+    async def call(self, body: Body) -> Union[Body | Timeout]:
+        """Pass a call to the service."""
+        return await self.node.rpc(self.name, body)

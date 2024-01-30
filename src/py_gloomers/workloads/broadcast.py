@@ -74,7 +74,7 @@ async def gossiper(dest: str):
         task = asyncio.create_task(w)
 
         def update_sent(t: asyncio.Task):
-            if isinstance(task.result(), dict):
+            if isinstance(t.result(), dict):
                 sent.add(value)
 
         task.add_done_callback(update_sent)
