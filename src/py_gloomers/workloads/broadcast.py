@@ -10,7 +10,6 @@ from py_gloomers.node import reply_to
 node = Node(transport=StdIOTransport())
 
 values: set[int] = set()
-cluster: list[str] = []
 run_condition: asyncio.Condition = asyncio.Condition()
 INPUT_FIELD = "message"
 REPLY_FIELD = "messages"
