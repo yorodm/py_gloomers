@@ -1,10 +1,7 @@
 """G-Set workload."""
-import uuid
 from typing import Optional
-from py_gloomers.node import StdIOTransport, Node, Body, \
-    reply_to, log
-from py_gloomers.types import MessageTypes, BodyFields, MessageError, \
-    ErrorType
+from py_gloomers.node import StdIOTransport, Node, Body, reply_to, log
+from py_gloomers.types import MessageTypes, BodyFields, MessageError, ErrorType
 import asyncio
 
 
@@ -45,7 +42,7 @@ async def read(body: Body) -> Optional[Body]:
     """Process the read message."""
     return {
         BodyFields.TYPE: MessageTypes.READ_OK,
-        VALUE_FIELD: gset.current_state()
+        VALUE_FIELD: gset.current_state(),
     } | reply_to(body)
 
 
@@ -56,9 +53,7 @@ async def add(body: Body) -> Optional[Body]:
     if data is None:
         raise MessageError(ErrorType.BAD_REQ)
     gset.add(data)
-    return {
-        BodyFields.TYPE: MessageTypes.ADD_OK
-    } | reply_to(body)
+    return {BodyFields.TYPE: MessageTypes.ADD_OK} | reply_to(body)
 
 
 @node.handler
@@ -79,8 +74,7 @@ async def replicator():
     while True:
         await asyncio.sleep(5)
         body = {
-            BodyFields.TYPE: "replicate",
-            VALUE_FIELD: gset.current_state()
+            BodyFields.TYPE: "replicate", VALUE_FIELD: gset.current_state()
         }
         tasks = [node.rpc(x, body) for x in node.dns()]
         await asyncio.gather(*tasks)

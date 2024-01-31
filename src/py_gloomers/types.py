@@ -37,6 +37,10 @@ class MessageTypes(StrEnum):
     ADD = "add"
     ADD_OK = "add_ok"
     CUSTOM_REPLICATE = "replicate"
+    CAS = "cas"
+    CAS_OK = "cas_ok"
+    WRITE = "write"
+    WRITE_OK = "write_ok"
 
 
 class MessageFields(StrEnum):
@@ -55,6 +59,9 @@ class BodyFields(StrEnum):
     NODE_ID = "node_id"
     NODE_IDS = "node_ids"
     MSG_ID = "msg_id"
+    CODE = "code"
+    VALUE = "value"
+    DELTA = "delta"
 
 
 class ErrorType(IntEnum):
@@ -119,6 +126,12 @@ class Timeout:
     def __init__(self, wraped: Any):
         """Create a new timeout."""
         self.wraped = wraped
+
+
+def is_error(body: Body, error: ErrorType) -> bool:
+    """Check is the body is signaling a particular error."""
+    return (body.get(BodyFields.TYPE, "") == MessageTypes.ERROR) \
+        and (body.get(BodyFields.CODE, -1) == error.value)
 
 
 Handler: TypeAlias = Callable[[Body], Awaitable[Optional[Body]]]

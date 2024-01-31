@@ -1,7 +1,6 @@
 """Echo module."""
 from typing import Optional
-from py_gloomers.node import Node, StdIOTransport, Body, \
-    log, reply_to
+from py_gloomers.node import Node, StdIOTransport, Body, log, reply_to
 from py_gloomers.types import BodyFields, MessageTypes
 
 

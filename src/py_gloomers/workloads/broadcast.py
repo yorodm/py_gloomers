@@ -2,8 +2,7 @@
 import asyncio
 from typing import Optional, Coroutine
 from py_gloomers.node import Node, StdIOTransport, Body, log
-from py_gloomers.types import BodyFields, MessageTypes, MessageError, \
-    ErrorType
+from py_gloomers.types import BodyFields, MessageTypes, MessageError, ErrorType
 from py_gloomers.node import reply_to
 
 
@@ -38,7 +37,7 @@ async def read(body: Body) -> Optional[Body]:
     await log("Processing read message")
     return {
         BodyFields.TYPE: MessageTypes.READ_OK,
-        REPLY_FIELD: list(values)
+        REPLY_FIELD: list(values),
     } | reply_to(body)
 
 
@@ -54,9 +53,7 @@ async def topology(body: Body) -> Optional[Body]:
             node.add_worker(gossiper(member))
     else:
         raise MessageError(ErrorType.BAD_REQ)
-    return {
-        BodyFields.TYPE: MessageTypes.TOPOLOGY_OK
-    } | reply_to(body)
+    return {BodyFields.TYPE: MessageTypes.TOPOLOGY_OK} | reply_to(body)
 
 
 async def gossiper(dest: str):
@@ -65,10 +62,7 @@ async def gossiper(dest: str):
     await log(f"Creating worker for node {dest}")
 
     def create_broadcast(v: int) -> Body:
-        return {
-            BodyFields.TYPE: MessageTypes.BROAD,
-            INPUT_FIELD: v
-        }
+        return {BodyFields.TYPE: MessageTypes.BROAD, INPUT_FIELD: v}
 
     def annotate(w: Coroutine, value: int) -> asyncio.Task:
         task = asyncio.create_task(w)
@@ -91,15 +85,12 @@ async def gossiper(dest: str):
             await log(f"Sent is {sent}")
             await log(f"Values is {values}")
             await log(f"New data is {new_data}")
-            tasks = [
-                annotate(
-                    node.rpc(dest, create_broadcast(v)), v
-                ) for v in new_data
-            ]
+            tasks = [annotate(node.rpc(dest, create_broadcast(v)), v) for v in new_data]  # noqa
             # In case one of these tasks fails (rpc returns Timeout)
             # the corresponding value will not be added to the set so
             # it should be retried on the next notification
             asyncio.gather(*tasks)  # we don't care about results
+
 
 def main():  # noqa
     node.run()

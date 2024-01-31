@@ -1,8 +1,7 @@
 """Generate workload."""
 import uuid
 from typing import Optional
-from py_gloomers.node import StdIOTransport, Node, Body, \
-    log, reply_to
+from py_gloomers.node import StdIOTransport, Node, Body, log, reply_to
 from py_gloomers.types import MessageTypes, BodyFields
 
 
