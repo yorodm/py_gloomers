@@ -82,7 +82,7 @@ class Node:
     def __init__(self, transport: AbstractTransport) -> None:
         """Create a node and set up its internal state."""
         self.transport = transport
-        self.message_count = 1
+        self.message_count = 0
         self.__handlers = {}
         # We are using this as a marker for the init status
         self.node_id = None
@@ -151,7 +151,6 @@ class Node:
         body: Body,
     ) -> Union[Body, Timeout]:
         """Make an rpc call and wait for a response."""
-        await log(f"Making rpc call {body}")
         fut = self.loop.create_future()
         await self.emit(dest, body)
         index = self.message_count
@@ -198,9 +197,7 @@ class Node:
         if (reply := event.body.get(BodyFields.REPLY, None)) is not None:
             await log(f"Event is in reply to {reply}")
             fut = self.callbacks.pop(reply, None)
-            await log(f"Found callback {fut} waiting for that reply")
             if fut is not None:
-                await log(f"Setting callback result to {event.body}")
                 fut.set_result(event.body)
                 return
         # Handle regular messages

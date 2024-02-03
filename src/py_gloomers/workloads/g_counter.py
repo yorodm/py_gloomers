@@ -20,12 +20,26 @@ class GCounter:
     """The GCounter workload."""
 
     service: Service
-    counter: int
+    __counter: int
 
     def __init__(self):
         """Initialize the workload."""
         self.service = Service("lin-kv", node)
-        self.counter = 0
+        self.__counter = 0
+
+    async def proxy_read(self):
+        """Proxy the call and update."""
+        response = await self.service.call({
+            BodyFields.TYPE: MessageTypes.READ,
+            "key": KEY_NAME,
+        })
+        if is_error(response, ErrorType.NOT_FOUND_KEY):
+            return self.__counter
+        if isinstance(response, Timeout):
+            return self.__counter
+        if response.get(BodyFields.VALUE, None) is not None:
+            self.__counter = response.get(BodyFields.VALUE)
+        return self.__counter
 
     async def add(self, delta: int):
         """Increase the counter."""
@@ -33,12 +47,12 @@ class GCounter:
         # 2. if we receive an error read and update
         #    a) There is no data so we should call write
         #    b) There is data so we should call read
-        self.counter += delta
+        self.__counter += delta
         response = await self.service.call(
             {
                 BodyFields.TYPE: MessageTypes.CAS,
-                "from": self.counter,
-                "to": self.counter+delta,
+                "from": self.__counter,
+                "to": self.__counter+delta,
                 "key": "g_counter",
             }
         )
@@ -49,12 +63,12 @@ class GCounter:
             # a retry strategy of some kind.
             return  # Let's keep the typcheck happy
         if response.get(BodyFields.TYPE, "") == MessageTypes.CAS_OK.value:
-            self.counter += delta
+            self.__counter += delta
         if is_error(response, ErrorType.COND_FAILED):
             await self.sync_counter(delta)
             return
         if is_error(response, ErrorType.NOT_FOUND_KEY):
-            await self.write(self.counter+delta)
+            await self.write(self.__counter+delta)
             return
 
     async def write(self, value: int):
@@ -66,7 +80,7 @@ class GCounter:
         })
         if isinstance(response, Timeout):
             return  # again no retry strategy
-        self.counter = value  # cheap trick
+        self.__counter = value  # cheap trick
 
     async def sync_counter(self, delta: int):
         """Swap the counter for the value in the lin-kv."""
@@ -79,11 +93,11 @@ class GCounter:
             return  # again no retry strategy
         if (value := response.get(BodyFields.VALUE, None)) is not None:
             # 2. If we have a higher value write
-            if value < (self.counter + delta):
-                await self.write(self.counter + delta)
+            if value < (self.__counter + delta):
+                await self.write(self.__counter + delta)
                 return
             # 3. Else we swap for whatever linkv has
-            self.counter = value
+            self.__counter = value
 
 
 g_counter = GCounter()
@@ -92,9 +106,10 @@ g_counter = GCounter()
 @node.handler
 async def read(body: Body) -> Optional[Body]:
     """Handle read message."""
+    data = await g_counter.proxy_read()
     return {
         BodyFields.TYPE: MessageTypes.READ_OK,
-        BodyFields.VALUE: g_counter.counter
+        BodyFields.VALUE: data
     } | reply_to(body)
 
 
