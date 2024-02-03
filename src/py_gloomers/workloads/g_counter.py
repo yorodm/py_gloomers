@@ -51,7 +51,7 @@ class GCounter:
         if response.get(BodyFields.TYPE, "") == MessageTypes.CAS_OK.value:
             self.counter += delta
         if is_error(response, ErrorType.COND_FAILED):
-            await self.swap()
+            await self.sync_counter(delta)
             return
         if is_error(response, ErrorType.NOT_FOUND_KEY):
             await self.write(self.counter+delta)
@@ -68,8 +68,9 @@ class GCounter:
             return  # again no retry strategy
         self.counter = value  # cheap trick
 
-    async def swap(self):
+    async def sync_counter(self, delta: int):
         """Swap the counter for the value in the lin-kv."""
+        # 1. Read from linkv
         response = await self.service.call({
             BodyFields.TYPE: MessageTypes.READ,
             "key": KEY_NAME,
@@ -77,6 +78,11 @@ class GCounter:
         if isinstance(response, Timeout):
             return  # again no retry strategy
         if (value := response.get(BodyFields.VALUE, None)) is not None:
+            # 2. If we have a higher value write
+            if value < (self.counter + delta):
+                await self.write(self.counter + delta)
+                return
+            # 3. Else we swap for whatever linkv has
             self.counter = value
 
 
