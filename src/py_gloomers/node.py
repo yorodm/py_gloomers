@@ -153,9 +153,9 @@ class Node:
         """Make an rpc call and wait for a response."""
         await log(f"Making rpc call {body}")
         fut = self.loop.create_future()
+        await self.emit(dest, body)
         index = self.message_count
         self.callbacks[index] = fut
-        await self.emit(dest, body)
         try:
             async with asyncio.timeout(20):  # Lower this maybe?
                 return await fut
@@ -198,6 +198,7 @@ class Node:
         if (reply := event.body.get(BodyFields.REPLY, None)) is not None:
             await log(f"Event is in reply to {reply}")
             fut = self.callbacks.pop(reply, None)
+            await log(f"Found callback {fut} waiting for that reply")
             if fut is not None:
                 await log(f"Setting callback result to {event.body}")
                 fut.set_result(event.body)

@@ -66,7 +66,7 @@ class GCounter:
         })
         if isinstance(response, Timeout):
             return  # again no retry strategy
-        self.counter = value
+        self.counter = value  # cheap trick
 
     async def swap(self):
         """Swap the counter for the value in the lin-kv."""
@@ -76,7 +76,7 @@ class GCounter:
         })
         if isinstance(response, Timeout):
             return  # again no retry strategy
-        if value := response.get(BodyFields.VALUE, None) is not None:
+        if (value := response.get(BodyFields.VALUE, None)) is not None:
             self.counter = value
 
 
