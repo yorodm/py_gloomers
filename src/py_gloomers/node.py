@@ -129,7 +129,7 @@ class Node:
             except KeyError:
                 await log(f"Ignoring malformed message {line}")
                 continue  # check the protocol docs
-        for call in self.callbacks.items():
+        for _, call in self.callbacks.items():
             call.cancel()
         for worker in self.workers:
             worker.cancel()

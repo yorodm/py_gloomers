@@ -22,7 +22,6 @@ class TestTransport(IsolatedAsyncioTestCase):
     @patch("sys.stdout", new_callable=io.StringIO)
     async def test_read(self, stdout: io.StringIO) -> None:
         # Given
-        loop = asyncio.get_event_loop()
         transport = StdIOTransport()
         # When
         data: Optional[str] = await transport.read()
