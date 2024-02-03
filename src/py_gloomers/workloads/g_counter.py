@@ -42,6 +42,7 @@ class GCounter:
                 "key": "g_counter",
             }
         )
+        await log(f"Response I got is {response}")
         if isinstance(response, Timeout):
             await log("Call to cas timed out")
             # If i want to work with network partitions there should be

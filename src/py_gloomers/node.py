@@ -9,6 +9,7 @@ from py_gloomers.types import AbstractTransport, EventData, Body
 from py_gloomers.types import MessageFields, MessageTypes, BodyFields, \
     MessageError, ErrorType, WorkerFn
 from py_gloomers.types import Handler, Worker, Timeout
+import datetime
 
 
 __ERR_LOCK = asyncio.Lock()
@@ -17,6 +18,7 @@ __ERR_LOCK = asyncio.Lock()
 async def log(message: str):
     """Log a message to stderr."""
     async with __ERR_LOCK:
+        message = f"{datetime.datetime.now()} -  {message}"
         asyncio.get_event_loop().run_in_executor(
             None,
             functools.partial(print, message, file=sys.stderr, flush=True)
@@ -155,9 +157,10 @@ class Node:
         self.callbacks[index] = fut
         await self.emit(dest, body)
         try:
-            async with asyncio.timeout(10):  # Lower this maybe?
+            async with asyncio.timeout(20):  # Lower this maybe?
                 return await fut
         except TimeoutError:
+            await log(f"Future from message_id {index} timed out")
             fut = self.callbacks.pop(index)
             fut.cancel()
             return Timeout(body)
@@ -194,7 +197,8 @@ class Node:
         await log(f"Got event ${event}")
         if (reply := event.body.get(BodyFields.REPLY, None)) is not None:
             await log(f"Event is in reply to {reply}")
-            if (fut := self.callbacks.pop(reply, None)) is not None:
+            fut = self.callbacks.pop(reply, None)
+            if fut is not None:
                 await log(f"Setting callback result to {event.body}")
                 fut.set_result(event.body)
                 return
