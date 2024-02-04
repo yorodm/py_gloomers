@@ -227,5 +227,4 @@ class Service:
 
     async def call(self, body: Body) -> Union[Body | Timeout]:
         """Pass a call to the service."""
-        await log(f"Calling service {self.name} with {body}")
         return await self.node.rpc(self.name, body)

@@ -15,6 +15,7 @@ generate = "py_gloomers.workloads.generate:main"
 broadcast = "py_gloomers.workloads.broadcast:main"
 g_set = "py_gloomers.workloads.g_set:main"
 g_counter = "py_gloomers.workloads.g_counter:main"
+g_counter_g = "py_gloomers.workloads.g_counter_g:main"
 
 [build-system]
 requires = ["hatchling"]
