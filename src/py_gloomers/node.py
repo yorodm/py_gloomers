@@ -163,6 +163,10 @@ class Node:
             fut = self.callbacks.pop(index)
             fut.cancel()
             return Timeout(body)
+        except asyncio.exceptions.CancelledError:
+            await log(f"Got cancell error for {body}")
+            await log(f"State if callbacks is {self.callbacks}")
+            return Timeout(body)
 
     def dns(self) -> set[str]:
         """

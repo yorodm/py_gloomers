@@ -24,7 +24,7 @@ class GCounter:
 
     def __init__(self):
         """Initialize the workload."""
-        self.service = Service("lin-kv", node)
+        self.service = Service("seq-kv", node)
         self.__counter = 0
 
     async def proxy_read(self):
@@ -33,9 +33,9 @@ class GCounter:
             BodyFields.TYPE: MessageTypes.READ,
             "key": KEY_NAME,
         })
-        if is_error(response, ErrorType.NOT_FOUND_KEY):
-            return self.__counter
         if isinstance(response, Timeout):
+            return self.__counter
+        if is_error(response, ErrorType.NOT_FOUND_KEY):
             return self.__counter
         if response.get(BodyFields.VALUE, None) is not None:
             self.__counter = response.get(BodyFields.VALUE)
@@ -64,6 +64,7 @@ class GCounter:
             return  # Let's keep the typcheck happy
         if response.get(BodyFields.TYPE, "") == MessageTypes.CAS_OK.value:
             self.__counter += delta
+            return
         if is_error(response, ErrorType.COND_FAILED):
             await self.sync_counter(delta)
             return
