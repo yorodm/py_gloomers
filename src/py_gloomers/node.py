@@ -126,6 +126,7 @@ class Node:
             except MessageError as err:
                 await log(f"Detected {err} while processing data")
                 await self.emit(event.src, err.to_message())
+                continue
             except KeyError:
                 await log(f"Ignoring malformed message {line}")
                 continue  # check the protocol docs

@@ -1,8 +1,8 @@
 """G-Set workload."""
-from typing import Optional
-from py_gloomers.node import StdIOTransport, Node, Body, reply_to, log
-from py_gloomers.types import MessageTypes, BodyFields, MessageError, ErrorType
 import asyncio
+from typing import Optional
+from py_gloomers.node import StdIOTransport, Node, Body, reply_to
+from py_gloomers.types import MessageTypes, BodyFields, MessageError, ErrorType
 
 
 node = Node(StdIOTransport())
@@ -60,11 +60,9 @@ async def add(body: Body) -> Optional[Body]:
 async def replicate(body: Body) -> Optional[Body]:
     """Update CRDT with replicated messages."""
     data = body.get(VALUE_FIELD, None)
-    await log(f"Handling message of type replicate with {data}")
     if data is None:
         raise MessageError(ErrorType.BAD_REQ)
     gset.update(data)
-    await log(f"New state is {gset.current_state()}")
     return None
 
 

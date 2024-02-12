@@ -1,7 +1,7 @@
 """Generate workload."""
 import uuid
 from typing import Optional
-from py_gloomers.node import StdIOTransport, Node, Body, log, reply_to
+from py_gloomers.node import StdIOTransport, Node, Body, reply_to
 from py_gloomers.types import MessageTypes, BodyFields
 
 
@@ -14,7 +14,6 @@ INPUT_FIELD = "id"
 @node.handler
 async def generate(body: Body) -> Optional[Body]:
     """Generate workload."""
-    await log("Processing unique-ids message")
     return {
         BodyFields.TYPE: MessageTypes.GEN_OK,
         INPUT_FIELD: str(uuid.uuid4()),

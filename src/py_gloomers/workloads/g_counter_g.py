@@ -65,7 +65,6 @@ async def broadcast(body: Body) -> Optional[Body]:
     """Consume the broadcast RPC."""
     sender = body.get("sender")
     value = body.get(BodyFields.VALUE)
-    await log(f"Got update from nodes {sender}: {value}")
     g_counter.counters.update({sender: value})  # noqa
     return None
 

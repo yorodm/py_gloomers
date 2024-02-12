@@ -1,7 +1,7 @@
 """Workload for broadcast."""
 import asyncio
 from typing import Optional
-from py_gloomers.node import Node, StdIOTransport, Body, log, Service
+from py_gloomers.node import Node, StdIOTransport, Body, Service
 from py_gloomers.types import (
     BodyFields,
     MessageTypes,
@@ -56,9 +56,7 @@ class GCounter:
                 "key": "g_counter",
             }
         )
-        await log(f"Response I got is {response}")
         if isinstance(response, Timeout):
-            await log("Call to cas timed out")
             # If i want to work with network partitions there should be
             # a retry strategy of some kind.
             return  # Let's keep the typcheck happy
