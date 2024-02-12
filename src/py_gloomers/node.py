@@ -127,9 +127,9 @@ class Node:
                 await log(f"Detected {err} while processing data")
                 await self.emit(event.src, err.to_message())
                 continue
-            except KeyError:
-                await log(f"Ignoring malformed message {line}")
-                continue  # check the protocol docs
+            # except KeyError as e:
+            #     await log(f"Ignoring malformed message {line} {e}")
+            #     continue  # check the protocol docs
         for _, call in self.callbacks.items():
             call.cancel()
         for worker in self.workers:
@@ -157,12 +157,15 @@ class Node:
         index = self.message_count
         self.callbacks[index] = fut
         try:
-            async with asyncio.timeout(20):  # Lower this maybe?
-                return await fut
+            res = await asyncio.wait_for(fut, timeout=20)
+            return res
         except TimeoutError:
             await log(f"Future from message_id {index} timed out")
-            fut = self.callbacks.pop(index)
-            fut.cancel()
+            fut = self.callbacks.pop(index, None)
+            if fut is None:
+                await log(f"Response handler for {index} vanished")
+            else:
+                fut.cancel()
             return Timeout(body)
         except asyncio.exceptions.CancelledError:
             await log(f"Got cancell error for {body}")

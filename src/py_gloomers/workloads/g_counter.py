@@ -54,6 +54,7 @@ class GCounter:
                 "from": self.__counter,
                 "to": self.__counter+delta,
                 "key": "g_counter",
+                "create_if_not_exists": True
             }
         )
         if isinstance(response, Timeout):
