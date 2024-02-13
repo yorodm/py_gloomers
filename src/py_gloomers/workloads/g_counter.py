@@ -1,7 +1,7 @@
 """Workload for broadcast."""
 import asyncio
 from typing import Optional
-from py_gloomers.node import Node, StdIOTransport, Body, Service
+from py_gloomers.node import Node, StdIOTransport, Body, KeyStores
 from py_gloomers.types import (
     BodyFields,
     MessageTypes,
@@ -19,12 +19,12 @@ KEY_NAME = "g_counter"
 class GCounter:
     """The GCounter workload."""
 
-    service: Service
+    service: KeyStores
     __counter: int
 
     def __init__(self):
         """Initialize the workload."""
-        self.service = Service("seq-kv", node)
+        self.service = KeyStores("seq-kv", node)
         self.__counter = 0
 
     async def proxy_read(self):

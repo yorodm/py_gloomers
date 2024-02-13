@@ -3,7 +3,7 @@ import asyncio
 import sys
 import json
 import functools
-from typing import Optional, Union
+from typing import Optional, Union, Awaitable
 from dataclasses import asdict
 from py_gloomers.types import AbstractTransport, EventData, Body
 from py_gloomers.types import MessageFields, MessageTypes, BodyFields, \
@@ -222,7 +222,7 @@ class Node:
         self.loop.run_until_complete(self.start_serving())
 
 
-class Service:
+class KeyStores:
     """Proxy to access a service."""
 
     node: Node
@@ -233,6 +233,27 @@ class Service:
         self.name = name
         self.node = node
 
-    async def call(self, body: Body) -> Union[Body | Timeout]:
+    def call(self, body: Body) -> Awaitable[Union[Body | Timeout]]:
         """Pass a call to the service."""
-        return await self.node.rpc(self.name, body)
+        return self.node.rpc(self.name, body)
+
+    def read(self, body: Body) -> Awaitable[Union[Body | Timeout]]:
+        """Send a read call into a service."""
+        body.update({
+            BodyFields.TYPE: MessageTypes.READ
+        })
+        return self.call(body)
+
+    def write(self, body: Body) -> Awaitable[Union[Body | Timeout]]:
+        """Send a write call into a service."""
+        body.update({
+            BodyFields.TYPE: MessageTypes.WRITE
+        })
+        return self.call(body)
+
+    def cas(self, body: Body) -> Awaitable[Union[Body | Timeout]]:
+        """Send a compare and swap call into a service."""
+        body.update({
+            BodyFields.TYPE: MessageTypes.CAS
+        })
+        return self.call(body)
